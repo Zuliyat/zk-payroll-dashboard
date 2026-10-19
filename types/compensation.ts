@@ -104,6 +104,105 @@ export interface CompensationPolicyEffectiveDateOptions {
   remediationAction?: { label: string; href: string };
 }
 
+/**
+ * Compensation group used for group membership validation (#687).
+ *
+ * Privacy-safe: a group is represented only by its id, name, and the set of
+ * employee ids it covers. Salary amounts and payout destinations are absent.
+ */
+export interface CompensationGroup {
+  /** Internal compensation group id, e.g. "comp_group_engineering". */
+  id: string;
+  /** Human-readable group name. */
+  name: string;
+  /** Employee ids covered by this group. */
+  employeeIds: string[];
+}
+
+/** Lifecycle status of a compensation group. */
+export type CompensationGroupStatus = "active" | "draft" | "archived";
+
+/**
+ * A compensation group membership record reduced to its validation-relevant facts.
+ *
+ * Intentionally minimal: employee and group are represented only by ids.
+ */
+export interface CompensationGroupMembershipEntry {
+  /** Internal employee id. */
+  employeeId: string;
+  /** Compensation group id the employee is assigned to. */
+  groupId: string;
+  /** Whether the membership is currently active. */
+  isActive: boolean;
+}
+
+/** Severity of a single group membership finding. */
+export type CompensationGroupMembershipSeverity = "error" | "warning";
+
+/**
+ * A single actionable group membership finding.
+ */
+export interface CompensationGroupMembershipCheck {
+  /** Stable machine-readable identifier for the rule that produced the finding. */
+  id: string;
+  /** Employee id the finding is attributed to, when attributable. */
+  employeeId?: string;
+  /** Group id the finding is attributed to, when attributable. */
+  groupId?: string;
+  severity: CompensationGroupMembershipSeverity;
+  /** Short rule name, e.g. "Employee not in any group". */
+  title: string;
+  /** Operator-facing explanation. Never contains salaries or identities beyond ids. */
+  message: string;
+  /** Concrete next step that resolves the finding. */
+  remediation?: string;
+}
+
+/** Options accepted by the group membership evaluation. */
+export interface CompensationGroupMembershipOptions {
+  /** Whether ungrouped employees are treated as a warning rather than an error. */
+  allowUngroupedEmployees?: boolean;
+  /** Whether inactive groups may still receive new members. */
+  allowMembershipInInactiveGroups?: boolean;
+  /** Remediation link surfaced with the result when action is required. */
+  remediationAction?: { label: string; href: string };
+}
+
+/**
+ * Result of evaluating compensation group membership assignments.
+ */
+export interface CompensationGroupMembershipResult {
+  /** Overall group membership health. */
+  status: "valid" | "warning" | "invalid";
+  /** Whether compensation changes may proceed for the evaluated employees. */
+  canProceedWithCompensationChanges: boolean;
+  /** Membership entries that passed validation, in input order. */
+  checkedMemberships: CompensationGroupMembershipEntry[];
+  /** Every finding, errors first, then warnings. */
+  checks: CompensationGroupMembershipCheck[];
+  /** Blocking findings; non-empty when status is invalid. */
+  errors: CompensationGroupMembershipCheck[];
+  /** Non-blocking advisory findings. */
+  warnings: CompensationGroupMembershipCheck[];
+  /** Number of memberships carrying no blocking finding. */
+  validMembershipCount: number;
+  /** Number of employees not covered by any active group. */
+  ungroupedEmployeeCount: number;
+  /** Single operator-facing summary of the result. */
+  summaryMessage: string;
+  /** Recommended remediation action, present when action is required. */
+  remediationAction?: { label: string; href: string };
+}
+
+/** Default remediation link surfaced with an actionable result. */
+export const DEFAULT_COMPENSATION_GROUP_REMEDIATION_ACTION: {
+  label: string;
+  href: string;
+} = {
+  label: "Review compensation groups",
+  href: "/settings/compensation-groups",
+};
+
 /** Result of evaluating the effective dates of a compensation policy schedule. */
 export interface CompensationPolicyEffectiveDateResult {
   /** Overall effective-date health. */

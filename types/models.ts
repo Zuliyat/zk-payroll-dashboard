@@ -1074,3 +1074,82 @@ export interface PaymentInstructionValidationResult {
   /** High-level summary of findings, or null if no duplicates. */
   summaryMessage: string | null;
 }
+
+/**
+ * Lifecycle status of a payroll import batch (#686).
+ *
+ * - `pending`   – import was received but not yet committed.
+ * - `completed` – import was committed to payroll records.
+ * - `rolled_back` – import was rolled back to the pre-import snapshot.
+ * - `failed`    – import failed before or during commitment.
+ */
+export type PayrollImportBatchStatus = "pending" | "completed" | "rolled_back" | "failed";
+
+/**
+ * A payroll import batch reduced to its rollback-relevant facts.
+ *
+ * Intentionally minimal: the batch carries only its id, timing, count, and a
+ * pre-import snapshot reference. Salary amounts, employee identities, and
+ * wallet addresses are not part of this contract.
+ */
+export interface PayrollImportBatch {
+  /** Internal import batch id, e.g. "import_2026-10-01_01". */
+  id: string;
+  /** ISO timestamp when the import was received. */
+  importedAt: string;
+  /** Number of payroll records in the import. */
+  recordCount: number;
+  /** Reference to the pre-import snapshot, present once committed. */
+  snapshotId?: string | null;
+  /** Current lifecycle status of the batch. */
+  status: PayrollImportBatchStatus;
+  /** ISO timestamp when the batch was completed, if applicable. */
+  completedAt?: string | null;
+}
+
+/**
+ * Policy governing when a completed payroll import may be rolled back.
+ */
+export interface PayrollImportRollbackPolicy {
+  /** Maximum age in hours after completion within which rollback is allowed. */
+  maxRollbackAgeHours: number;
+  /** Whether rollback is allowed after the import has been executed on-chain. */
+  allowRollbackAfterExecution: boolean;
+  /** Whether rollback is allowed once a reconciliation has started. */
+  allowRollbackAfterReconciliation: boolean;
+}
+
+/**
+ * Decision on whether a payroll import batch may be rolled back.
+ */
+export interface PayrollImportRollbackDecision {
+  /** True when the rollback is permitted. */
+  allowed: boolean;
+  /** Machine-readable reason when rollback is not permitted. */
+  reason?: "batch_not_completed" | "rollback_window_expired" | "executed_on_chain" | "reconciliation_started" | "unknown_batch";
+  /** Human-readable explanation of the decision. */
+  message: string;
+  /** Remaining rollback window in hours, null when not applicable. */
+  remainingWindowHours?: number | null;
+}
+
+/**
+ * Result of evaluating rollback eligibility for a payroll import batch.
+ */
+export interface PayrollImportRollbackEvaluation {
+  /** The batch that was evaluated. */
+  batch: PayrollImportBatch;
+  /** Whether rollback is permitted. */
+  allowed: boolean;
+  /** Decision with reason and message. */
+  decision: PayrollImportRollbackDecision;
+  /** Whether the batch can still be rolled back (same as allowed). */
+  canRollback: boolean;
+}
+
+/** Default rollback policy: 24-hour window, no on-chain or post-reconciliation rollback. */
+export const DEFAULT_PAYROLL_IMPORT_ROLLBACK_POLICY: PayrollImportRollbackPolicy = {
+  maxRollbackAgeHours: 24,
+  allowRollbackAfterExecution: false,
+  allowRollbackAfterReconciliation: false,
+};
